@@ -32,26 +32,28 @@ instance Show Token where
   show (Command c) = "COMMAND " ++ show c
   show (TelnetChar c) = show c
              
+charTok constr = anyChar >>= return . constr
 iacParser :: Parser Token
 iacParser = iac >> afterIac
   where
     opt p c = p >> anyChar >>= return . c
-    doParser = opt _do Do
-    dontParser = opt dont Dont
-    willParser = opt will Will
-    wontParser = opt wont Wont
-    subnegoEnd = iac >> se
-    subnegoContent = many $ noneOf "\255"
+    doParser = _do >> (charTok Do)
+    dontParser = dont >> (charTok Dont)
+    willParser = will >> (charTok Will)
+    wontParser = wont >> (charTok Wont)
     subnegoParser = between sb subnegoEnd subnegoContent >>= return . Subnego
-    commandParser = anyChar >>= return . Command
-    iac2Parser = iac >> return (TelnetChar '\255')
+      where
+        subnegoEnd = iac >> se
+        subnegoContent = many $ noneOf "\255"
+    commandParser = charTok Command
+    doubleIac = iac >> return (TelnetChar '\255')
     afterIac = doParser <|>
                dontParser <|>
                willParser <|>
                wontParser <|>
                subnegoParser <|>
-               commandParser <|>
-               iac2Parser
+               doubleIac <|>
+               commandParser
 telnetChar :: Parser Token
 telnetChar = anyChar >>= return . TelnetChar
 token :: Parser Token
